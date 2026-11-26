@@ -36,15 +36,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 1) Build local per poder comprovar-la i saber quina versió de Caddy porta
+      # 1) Build local per poder comprovar-la i saber quina versió de Caddy porta.
+      #    pull: true -> sempre l'última imatge base caddy:2 / caddy:2-builder
+      #    CACHE_BUST -> sempre recompila xcaddy (última versió del mòdul Cloudflare)
       - name: Build (local)
         uses: docker/build-push-action@v7
         with:
           context: .
           load: true
+          pull: true
           tags: caddy-test:local
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          build-args: |
+            CACHE_BUST=${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Verify Cloudflare module & get Caddy version
         id: caddy
@@ -52,7 +55,9 @@ jobs:
           docker run --rm caddy-test:local caddy list-modules | grep -q '^dns.providers.cloudflare$' \
             || { echo "::error::El mòdul dns.providers.cloudflare no hi és"; exit 1; }
           version=$(docker run --rm caddy-test:local caddy version | awk '{print $1}' | sed 's/^v//')
-          echo "Caddy version: $version"
+          cf_version=$(docker run --rm caddy-test:local caddy list-modules --versions | awk '$1=="dns.providers.cloudflare"{print $2}')
+          echo "Caddy: $version | caddy-dns/cloudflare: $cf_version"
+          echo "### Caddy \`$version\` · caddy-dns/cloudflare \`$cf_version\`" >> "$GITHUB_STEP_SUMMARY"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Docker metadata
@@ -66,16 +71,17 @@ jobs:
             type=raw,value=${{ steps.caddy.outputs.version }}-{{date 'YYYYMMDD'}}
             type=sha,format=short
 
-      # 2) Push (reutilitza la cache del pas anterior, és pràcticament instantani)
+      # 2) Push. Mateix CACHE_BUST que el pas 1, així reutilitza la build
+      #    ja verificada (cache local del builder) i no recompila.
       - name: Push
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
+          build-args: |
+            CACHE_BUST=${{ github.run_id }}-${{ github.run_attempt }}
           # Si algun dia necessites ARM (Raspberry, etc.): linux/amd64,linux/arm64
           # (cal afegir abans docker/setup-qemu-action@v4 i el build serà més lent)
           platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max

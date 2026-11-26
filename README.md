@@ -7,7 +7,8 @@ i publicada a GitHub Container Registry (`ghcr.io`).
 ## Quan es compila
 
 - A cada push a `main` que toqui el `Dockerfile` o el workflow.
-- Cada dilluns a les 04:00 UTC (per agafar versions noves de Caddy / del mòdul).
+- Cada dilluns a les 04:00 UTC. Sempre agafa l'últim Caddy 2.x i l'última versió
+  publicada del mòdul de Cloudflare (es recompila sempre, no es fa servir cache).
 - A mà des de la pestanya **Actions → Build & push Caddy image → Run workflow**.
 
 ## Tags publicats
