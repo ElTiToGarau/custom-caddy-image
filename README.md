@@ -1,4 +1,4 @@
-# caddy-cloudflare
+# custom-caddy-image
 
 Imatge de [Caddy](https://caddyserver.com/) amb el mòdul DNS de
 [Cloudflare](https://github.com/caddy-dns/cloudflare), compilada amb GitHub Actions
@@ -26,5 +26,5 @@ El workflow comprova que el mòdul `dns.providers.cloudflare` és present abans 
 ```yaml
 services:
   caddy:
-    image: ghcr.io/<usuari>/caddy-cloudflare:latest
+    image: ghcr.io/eltitogarau/custom-caddy-image:latest
 ```
