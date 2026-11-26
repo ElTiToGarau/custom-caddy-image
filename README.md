@@ -22,6 +22,9 @@ i publicada a GitHub Container Registry (`ghcr.io`).
 
 El workflow comprova que el mòdul `dns.providers.cloudflare` és present abans de publicar.
 
+Després de cada push es guarden només les **8 últimes builds** (unes 8 setmanes);
+les més antigues s'esborren de GHCR. Es configura a `keep-n-tagged` del workflow.
+
 ## Ús
 
 ```yaml

@@ -16,6 +16,11 @@ permissions:
   contents: read
   packages: write
 
+# Mai dues execucions alhora (la neteja no és segura en paral·lel)
+concurrency:
+  group: build
+  cancel-in-progress: false
+
 env:
   IMAGE: ghcr.io/${{ github.repository }}
 
@@ -85,3 +90,12 @@ jobs:
           platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+      # 3) Neteja: guarda les 8 últimes builds (unes 8 setmanes) i esborra la resta.
+      #    Esborra també les capes/attestations de cada imatge eliminada.
+      #    Per provar què esborraria sense esborrar res: dry-run: true
+      - name: Cleanup old images
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          keep-n-tagged: 8
+          delete-untagged: true
