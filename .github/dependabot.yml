@@ -1,0 +1,7 @@
+version: 2
+updates:
+  # Manté al dia les versions de les GitHub Actions del workflow
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

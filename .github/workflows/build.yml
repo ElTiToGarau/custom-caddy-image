@@ -1,0 +1,81 @@
+name: Build & push Caddy image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .github/workflows/build.yml
+  schedule:
+    # Cada dilluns a les 04:00 UTC, per agafar noves versions de Caddy
+    # i del mòdul de Cloudflare (i pegats de seguretat de la imatge base).
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 1) Build local per poder comprovar-la i saber quina versió de Caddy porta
+      - name: Build (local)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: caddy-test:local
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify Cloudflare module & get Caddy version
+        id: caddy
+        run: |
+          docker run --rm caddy-test:local caddy list-modules | grep -q '^dns.providers.cloudflare$' \
+            || { echo "::error::El mòdul dns.providers.cloudflare no hi és"; exit 1; }
+          version=$(docker run --rm caddy-test:local caddy version | awk '{print $1}' | sed 's/^v//')
+          echo "Caddy version: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ steps.caddy.outputs.version }}
+            type=raw,value=${{ steps.caddy.outputs.version }}-{{date 'YYYYMMDD'}}
+            type=sha,format=short
+
+      # 2) Push (reutilitza la cache del pas anterior, és pràcticament instantani)
+      - name: Push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          # Si algun dia necessites ARM (Raspberry, etc.): linux/amd64,linux/arm64
+          # (cal afegir abans docker/setup-qemu-action@v4 i el build serà més lent)
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
